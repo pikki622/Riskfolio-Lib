@@ -80,9 +80,7 @@ def is_pos_def(cov, threshold=1e-8):
     """
     cov_ = np.array(cov, ndmin=2)
     w = LA.eigh(cov_, lower=True, check_finite=True, eigvals_only=True)
-    value = np.all(w >= threshold)
-
-    return value
+    return np.all(w >= threshold)
 
 
 def cov2corr(cov):
@@ -224,7 +222,7 @@ def cov_returns(cov, seed=0):
     n = len(cov)
     a = np.array(rs.randn(n + 10, n), ndmin=2)
 
-    for i in range(0, 5):
+    for _ in range(0, 5):
         cov_ = np.cov(a.T)
         L = np.array(np.linalg.cholesky(cov_), ndmin=2)
         a = a @ np.linalg.inv(L).T
@@ -291,7 +289,7 @@ def cokurtosis_matrix(Y):
     if isinstance(Y, pd.DataFrame):
         assets = Y.columns.tolist()
         cols = list(product(assets, assets))
-        cols = [str(y) + " - " + str(x) for x, y in cols]
+        cols = [f"{str(y)} - {str(x)}" for x, y in cols]
         flag = True
 
     Y_ = np.array(Y, ndmin=2)
@@ -401,9 +399,7 @@ def dcorr(X, Y):
     dcov2_xy = (A * B).sum() / float(n * n)
     dcov2_xx = (A * A).sum() / float(n * n)
     dcov2_yy = (B * B).sum() / float(n * n)
-    value = np.sqrt(dcov2_xy) / np.sqrt(np.sqrt(dcov2_xx) * np.sqrt(dcov2_yy))
-
-    return value
+    return np.sqrt(dcov2_xy) / np.sqrt(np.sqrt(dcov2_xx) * np.sqrt(dcov2_yy))
 
 
 def dcorr_matrix(X):
@@ -484,9 +480,7 @@ def numBins(n_samples, corr=None):
             2**-0.5 * (1 + (1 + 24 * n_samples / (1 - corr**2)) ** 0.5) ** 0.5
         )
 
-    bins = np.int32(b)
-
-    return bins
+    return np.int32(b)
 
 
 def mutual_info_matrix(X, bins_info="KN", normalize=True):
@@ -556,11 +550,8 @@ def mutual_info_matrix(X, bins_info="KN", normalize=True):
                 bins = np.int32(np.round(np.maximum(k1, k2)))
         elif bins_info == "HGR":
             corr = np.corrcoef(X1[:, i], X1[:, j])[0, 1]
-            if corr == 1:
-                bins = numBins(m, None)
-            else:
-                bins = numBins(m, corr)
-        elif isinstance(bins_info, np.int32) or isinstance(bins_info, int):
+            bins = numBins(m, None) if corr == 1 else numBins(m, corr)
+        elif isinstance(bins_info, (np.int32, int)):
             bins = bins_info
 
         cXY = np.histogram2d(X1[:, i], X1[:, j], bins)[0]
@@ -651,11 +642,8 @@ def var_info_matrix(X, bins_info="KN", normalize=True):
                 bins = np.int32(np.round(np.maximum(k1, k2)))
         elif bins_info == "HGR":
             corr = np.corrcoef(X1[:, i], X1[:, j])[0, 1]
-            if corr == 1:
-                bins = numBins(m, None)
-            else:
-                bins = numBins(m, corr)
-        elif isinstance(bins_info, np.int32) or isinstance(bins_info, int):
+            bins = numBins(m, None) if corr == 1 else numBins(m, corr)
+        elif isinstance(bins_info, (np.int32, int)):
             bins = bins_info
 
         cXY = np.histogram2d(X1[:, i], X1[:, j], bins)[0]
@@ -803,13 +791,8 @@ def two_diff_gap_stat(codep, dist, clusters, max_k=10):
     n = codep.shape[0]
     limit_k = int(min(max_k, np.sqrt(n)))
     gaps = W_list.shift(2) + W_list - 2 * W_list.shift(1)
-    gaps = gaps[0:limit_k]
-    if gaps.isna().all():
-        k = len(gaps)
-    else:
-        k = int(gaps.idxmax() + 2)
-
-    return k
+    gaps = gaps[:limit_k]
+    return len(gaps) if gaps.isna().all() else int(gaps.idxmax() + 2)
 
 
 ###############################################################################
@@ -866,9 +849,7 @@ def fitKDE(obs, bWidth=0.01, kernel="gaussian", x=None):
         x = x.reshape(-1, 1)
 
     logProb = kde.score_samples(x)  # log(density)
-    pdf = pd.Series(np.exp(logProb), index=x.flatten())
-
-    return pdf
+    return pd.Series(np.exp(logProb), index=x.flatten())
 
 
 def mpPDF(var, q, pts):
@@ -939,9 +920,7 @@ def errPDFs(var, eVal, q, bWidth=0.01, pts=1000):
     # Fit error
     pdf0 = mpPDF(var, q, pts)  # theoretical pdf
     pdf1 = fitKDE(eVal, bWidth, x=pdf0.index.values)  # empirical pdf
-    sse = np.sum((pdf1 - pdf0) ** 2)
-
-    return sse
+    return np.sum((pdf1 - pdf0) ** 2)
 
 
 def findMaxEval(eVal, q, bWidth=0.01):
@@ -974,11 +953,7 @@ def findMaxEval(eVal, q, bWidth=0.01):
         lambda *x: errPDFs(*x), 0.5, args=(eVal, q, bWidth), bounds=((1e-5, 1 - 1e-5),)
     )
 
-    if out["success"]:
-        var = out["x"][0]
-    else:
-        var = 1
-
+    var = out["x"][0] if out["success"] else 1
     eMax = var * (1 + (1.0 / q) ** 0.5) ** 2
 
     return eMax, var
@@ -1089,9 +1064,7 @@ def shrinkCorr(eVal, eVec, nFacts, alpha=0):
     eVec_R = eVec[:, nFacts:]
     corr0 = np.dot(eVec_L, eVal_L).dot(eVec_L.T)
     corr1 = np.dot(eVec_R, eVal_R).dot(eVec_R.T)
-    corr2 = corr0 + alpha * corr1 + (1 - alpha) * np.diag(np.diag(corr1))
-
-    return corr2
+    return corr0 + alpha * corr1 + (1 - alpha) * np.diag(np.diag(corr1))
 
 
 def denoiseCov(cov, q, kind="fixed", bWidth=0.01, detone=False, mkt_comp=1, alpha=0):
@@ -1258,7 +1231,6 @@ def weights_discretizetion(
             w = weights.T.copy()
         elif weights.shape[1] == 1:
             w = weights.copy()
-            pass
         else:
             raise ValueError("weights must have size n_assets x 1")
     else:
@@ -1271,7 +1243,6 @@ def weights_discretizetion(
             p = prices.T.copy()
         elif prices.shape[1] == 1:
             p = prices.copy()
-            pass
         else:
             raise ValueError("prices must have size n_assets x 1")
     else:
@@ -1345,24 +1316,38 @@ def color_list(k):
     colors = []
 
     if k <= 10:
-        for i in range(10):
-            colors.append(mpl.colors.rgb2hex(plt.get_cmap("tab10").colors[i]))
+        colors.extend(
+            mpl.colors.rgb2hex(plt.get_cmap("tab10").colors[i])
+            for i in range(10)
+        )
     elif k <= 20:
-        for i in range(20):
-            colors.append(mpl.colors.rgb2hex(plt.get_cmap("tab20").colors[i]))
+        colors.extend(
+            mpl.colors.rgb2hex(plt.get_cmap("tab20").colors[i])
+            for i in range(20)
+        )
     elif k <= 40:
-        for i in range(20):
-            colors.append(mpl.colors.rgb2hex(plt.get_cmap("tab20").colors[i]))
-        for i in range(20):
-            colors.append(mpl.colors.rgb2hex(plt.get_cmap("tab20b").colors[i]))
+        colors.extend(
+            mpl.colors.rgb2hex(plt.get_cmap("tab20").colors[i])
+            for i in range(20)
+        )
+        colors.extend(
+            mpl.colors.rgb2hex(plt.get_cmap("tab20b").colors[i])
+            for i in range(20)
+        )
     else:
-        for i in range(20):
-            colors.append(mpl.colors.rgb2hex(plt.get_cmap("tab20").colors[i]))
-        for i in range(20):
-            colors.append(mpl.colors.rgb2hex(plt.get_cmap("tab20b").colors[i]))
-        for i in range(20):
-            colors.append(mpl.colors.rgb2hex(plt.get_cmap("tab20c").colors[i]))
-        if k / 60 > 1:
-            colors = colors * int(np.ceil(k / 60))
+        colors.extend(
+            mpl.colors.rgb2hex(plt.get_cmap("tab20").colors[i])
+            for i in range(20)
+        )
+        colors.extend(
+            mpl.colors.rgb2hex(plt.get_cmap("tab20b").colors[i])
+            for i in range(20)
+        )
+        colors.extend(
+            mpl.colors.rgb2hex(plt.get_cmap("tab20c").colors[i])
+            for i in range(20)
+        )
+        if k > 60:
+            colors *= int(np.ceil(k / 60))
 
     return colors
